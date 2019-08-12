@@ -5,7 +5,8 @@ import init.gps.rc
 import init.power.rc
 import init.rilchip.rc
 import init.battery.rc
-
+import init.spectrum.rc
+import init.helios.rc
 on early-init
     mount debugfs /sys/kernel/debug /sys/kernel/debug mode=755
 
