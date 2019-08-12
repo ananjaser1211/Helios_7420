@@ -27,14 +27,14 @@ CR_OUT=$CR_DIR/Helios/Out
 # Presistant A.I.K Location
 CR_AIK=$CR_DIR/Helios/A.I.K
 # Main Ramdisk Location
-CR_RAMDISK=$CR_DIR/Helios/Ramdisk
+CR_RAMDISK=$CR_DIR/Helios/LOS
 # Compiled image name and location (Image/zImage)
 CR_KERNEL=$CR_DIR/arch/arm64/boot/Image
 # Compiled dtb by dtbtool
 CR_DTB=$CR_DIR/boot.img-dtb
 # Kernel Name and Version
 CR_VERSION=V3.5
-CR_NAME=HeliosPie_Kernel
+CR_NAME=HeliosPie_AOSP
 # Thread count
 CR_JOBS=$((`nproc`-1))
 # Target android version and platform (7/n/8/o/9/p)
@@ -145,8 +145,8 @@ PACK_BOOT_IMG()
 	# Remove red warning at boot
 	echo -n "SEANDROIDENFORCE" » $CR_AIK/image-new.img
 	# Move boot.img to out dir
-	mv $CR_AIK/image-new.img $CR_OUT/$CR_NAME-$CR_VERSION-$CR_DATE-$CR_VARIANT.img
-	du -k "$CR_OUT/$CR_NAME-$CR_VERSION-$CR_DATE-$CR_VARIANT.img" | cut -f1 >sizkT
+	mv $CR_AIK/image-new.img $CR_OUT/$CR_NAME-$CR_VERSION-$CR_DATE-$CR_VARIANT-LOS.img
+	du -k "$CR_OUT/$CR_NAME-$CR_VERSION-$CR_DATE-$CR_VARIANT-LOS.img" | cut -f1 >sizkT
 	sizkT=$(head -n 1 sizkT)
 	rm -rf sizkT
 	echo " "
@@ -177,7 +177,7 @@ do
             echo "Compiled DTB Size = $sizdT Kb"
             echo "Kernel Image Size = $sizT Kb"
             echo "Boot Image   Size = $sizkT Kb"
-            echo "$CR_OUT/$CR_NAME-$CR_VERSION-$CR_DATE-$CR_VARIANT.img Ready"                         
+            echo "$CR_OUT/$CR_NAME-$CR_VERSION-$CR_DATE-$CR_VARIANT-LOS.img Ready"                         
             echo "Press Any key to end the script"
             echo "----------------------------------------------"
             read -n1 -r key
@@ -198,7 +198,7 @@ do
             echo "Compiled DTB Size = $sizdT Kb"
             echo "Kernel Image Size = $sizT Kb"
             echo "Boot Image   Size = $sizkT Kb"
-            echo "$CR_OUT/$CR_NAME-$CR_VERSION-$CR_DATE-$CR_VARIANT.img Ready"                         
+            echo "$CR_OUT/$CR_NAME-$CR_VERSION-$CR_DATE-$CR_VARIANT-LOS.img Ready"                         
             echo "Press Any key to end the script"
             echo "----------------------------------------------"
             read -n1 -r key
@@ -219,7 +219,7 @@ do
             echo "Compiled DTB Size = $sizdT Kb"
             echo "Kernel Image Size = $sizT Kb"
             echo "Boot Image   Size = $sizkT Kb"
-            echo "$CR_OUT/$CR_NAME-$CR_VERSION-$CR_DATE-$CR_VARIANT.img Ready"                         
+            echo "$CR_OUT/$CR_NAME-$CR_VERSION-$CR_DATE-$CR_VARIANT-LOS.img Ready"                         
             echo "Press Any key to end the script"
             echo "----------------------------------------------"
             read -n1 -r key
@@ -240,7 +240,7 @@ do
             echo "Compiled DTB Size = $sizdT Kb"
             echo "Kernel Image Size = $sizT Kb"
             echo "Boot Image   Size = $sizkT Kb"
-            echo "$CR_OUT/$CR_NAME-$CR_VERSION-$CR_DATE-$CR_VARIANT.img Ready"                         
+            echo "$CR_OUT/$CR_NAME-$CR_VERSION-$CR_DATE-$CR_VARIANT-LOS.img Ready"                         
             echo "Press Any key to end the script"
             echo "----------------------------------------------"
             read -n1 -r key
