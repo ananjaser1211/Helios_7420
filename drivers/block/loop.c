@@ -1317,6 +1317,7 @@ static int lo_ioctl(struct block_device *bdev, fmode_t mode,
 		err = loop_set_fd(lo, mode, bdev, arg);
 		break;
 	case LOOP_CHANGE_FD:
+	case LOOP_SET_BLOCK_SIZE:
 		err = loop_change_fd(lo, bdev, arg);
 		break;
 	case LOOP_CLR_FD:
