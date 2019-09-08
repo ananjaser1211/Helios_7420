@@ -75,7 +75,7 @@
 #include <linux/splice.h>
 #include <linux/sysfs.h>
 #include <linux/miscdevice.h>
-#include <linux/falloc.h>
+#include <linux/falloc.h>	
 
 #include <asm/uaccess.h>
 
@@ -184,6 +184,62 @@ static loff_t get_size(loff_t offset, loff_t sizelimit, struct file *file)
 static loff_t get_loop_size(struct loop_device *lo, struct file *file)
 {
 	return get_size(lo->lo_offset, lo->lo_sizelimit, file);
+}
+
+static void __loop_update_dio(struct loop_device *lo, bool dio)
+{
+	struct file *file = lo->lo_backing_file;
+	struct address_space *mapping = file->f_mapping;
+	struct inode *inode = mapping->host;
+	unsigned short sb_bsize = 0;
+	unsigned dio_align = 0;
+	bool use_dio;
+
+	if (inode->i_sb->s_bdev) {
+		sb_bsize = bdev_logical_block_size(inode->i_sb->s_bdev);
+		dio_align = sb_bsize - 1;
+	}
+
+	/*
+	 * We support direct I/O only if lo_offset is aligned with the
+	 * logical I/O size of backing device, and the logical block
+	 * size of loop is bigger than the backing device's and the loop
+	 * needn't transform transfer.
+	 *
+	 * TODO: the above condition may be loosed in the future, and
+	 * direct I/O may be switched runtime at that time because most
+	 * of requests in sane appplications should be PAGE_SIZE algined
+	 */
+	if (dio) {
+		if (queue_logical_block_size(lo->lo_queue) >= sb_bsize &&
+				!(lo->lo_offset & dio_align) &&
+				mapping->a_ops->direct_IO &&
+				!lo->transfer)
+			use_dio = true;
+		else
+			use_dio = false;
+	} else {
+		use_dio = false;
+	}
+
+	if (lo->use_dio == use_dio)
+		return;
+
+	/* flush dirty pages before changing direct IO */
+	vfs_fsync(file, 0);
+
+	/*
+	 * The flag of LO_FLAGS_DIRECT_IO is handled similarly with
+	 * LO_FLAGS_READ_ONLY, both are set from kernel, and losetup
+	 * will get updated by ioctl(LOOP_GET_STATUS)
+	 */
+	//blk_mq_freeze_queue(lo->lo_queue);
+	//lo->use_dio = use_dio;
+	//if (use_dio)
+	//	lo->lo_flags |= LO_FLAGS_DIRECT_IO;
+	//else
+	//	lo->lo_flags &= ~LO_FLAGS_DIRECT_IO;
+	//blk_mq_unfreeze_queue(lo->lo_queue);
 }
 
 static int
@@ -516,6 +572,12 @@ struct switch_request {
 	struct file *file;
 	struct completion wait;
 };
+
+static inline void loop_update_dio(struct loop_device *lo)
+{
+	//__loop_update_dio(lo, io_is_direct(lo->lo_backing_file) |
+			//lo->use_dio);
+}
 
 static void do_loop_switch(struct loop_device *, struct switch_request *);
 
@@ -881,6 +943,7 @@ static int loop_set_fd(struct loop_device *lo, fmode_t mode,
 
 	set_device_ro(bdev, (lo_flags & LO_FLAGS_READ_ONLY) != 0);
 
+	lo->use_dio = false;
 	lo->lo_blocksize = lo_blocksize;
 	lo->lo_device = bdev;
 	lo->lo_flags = lo_flags;
@@ -1087,24 +1150,31 @@ loop_set_status(struct loop_device *lo, const struct loop_info64 *info)
 		kill_bdev(lo->lo_device);
 	}
 
+	/* I/O need to be drained during transfer transition */
+	//blk_mq_freeze_queue(lo->lo_queue);
+
 	err = loop_release_xfer(lo);
 	if (err)
-		return err;
+		goto exit;
 
 	if (info->lo_encrypt_type) {
 		unsigned int type = info->lo_encrypt_type;
 
-		if (type >= MAX_LO_CRYPT)
-			return -EINVAL;
+		if (type >= MAX_LO_CRYPT) {
+			err = -EINVAL;
+			goto exit;
+		}
 		xfer = xfer_funcs[type];
-		if (xfer == NULL)
-			return -EINVAL;
+		if (xfer == NULL) {
+			err = -EINVAL;
+			goto exit;
+		}
 	} else
 		xfer = NULL;
 
 	err = loop_init_xfer(lo, xfer, info);
 	if (err)
-		return err;
+		goto exit;
 
 	if (lo->lo_offset != info->lo_offset ||
 	    lo->lo_sizelimit != info->lo_sizelimit) {
@@ -1116,9 +1186,11 @@ loop_set_status(struct loop_device *lo, const struct loop_info64 *info)
 				lo->lo_device->bd_inode->i_mapping->nrpages);
 			goto exit;
 		}
+		if (figure_loop_size(lo, info->lo_offset, info->lo_sizelimit)) {
+			err = -EFBIG;
+			goto exit;
+		}
 	}
-		if (figure_loop_size(lo, info->lo_offset, info->lo_sizelimit))
-			return -EFBIG;
 
 	loop_config_discard(lo);
 
@@ -1136,13 +1208,6 @@ loop_set_status(struct loop_device *lo, const struct loop_info64 *info)
 	     (info->lo_flags & LO_FLAGS_AUTOCLEAR))
 		lo->lo_flags ^= LO_FLAGS_AUTOCLEAR;
 
-	if ((info->lo_flags & LO_FLAGS_PARTSCAN) &&
-	     !(lo->lo_flags & LO_FLAGS_PARTSCAN)) {
-		lo->lo_flags |= LO_FLAGS_PARTSCAN;
-		lo->lo_disk->flags &= ~GENHD_FL_NO_PART_SCAN;
-		ioctl_by_bdev(lo->lo_device, BLKRRPART, 0);
-	}
-
 	lo->lo_encrypt_key_size = info->lo_encrypt_key_size;
 	lo->lo_init[0] = info->lo_init[0];
 	lo->lo_init[1] = info->lo_init[1];
@@ -1150,9 +1215,22 @@ loop_set_status(struct loop_device *lo, const struct loop_info64 *info)
 		memcpy(lo->lo_encrypt_key, info->lo_encrypt_key,
 		       info->lo_encrypt_key_size);
 		lo->lo_key_owner = uid;
-	}	
+	}
 
-	return 0;
+	/* update dio if lo_offset or transfer is changed */
+	__loop_update_dio(lo, lo->use_dio);
+
+ exit:
+	//blk_mq_unfreeze_queue(lo->lo_queue);
+
+	if (!err && (info->lo_flags & LO_FLAGS_PARTSCAN) &&
+	     !(lo->lo_flags & LO_FLAGS_PARTSCAN)) {
+		lo->lo_flags |= LO_FLAGS_PARTSCAN;
+		lo->lo_disk->flags &= ~GENHD_FL_NO_PART_SCAN;
+		//loop_reread_partitions(lo, lo->lo_device);
+	}
+
+	return err;
 }
 
 static int
@@ -1302,6 +1380,20 @@ static int loop_set_capacity(struct loop_device *lo, struct block_device *bdev)
 	return figure_loop_size(lo, lo->lo_offset, lo->lo_sizelimit);
 }
 
+static int loop_set_dio(struct loop_device *lo, unsigned long arg)
+{
+	int error = -ENXIO;
+	if (lo->lo_state != Lo_bound)
+		goto out;
+
+	__loop_update_dio(lo, !!arg);
+	if (lo->use_dio == !!arg)
+		return 0;
+	error = -EINVAL;
+ out:
+	return error;
+}
+
 static int loop_set_block_size(struct loop_device *lo, unsigned long arg)
 {
 	int err = 0;
@@ -1316,7 +1408,7 @@ static int loop_set_block_size(struct loop_device *lo, unsigned long arg)
 		kill_bdev(lo->lo_device);
 	}
 
-	blk_mq_freeze_queue(lo->lo_queue);
+	//blk_mq_freeze_queue(lo->lo_queue);
 
 	/* kill_bdev should have truncated all the pages */
 	if (lo->lo_queue->limits.logical_block_size != arg &&
@@ -1333,7 +1425,7 @@ static int loop_set_block_size(struct loop_device *lo, unsigned long arg)
 
 	out_unfreeze:
 
-	blk_mq_unfreeze_queue(lo->lo_queue);
+	//blk_mq_unfreeze_queue(lo->lo_queue);
 
 	return err;
 }
@@ -1350,9 +1442,6 @@ static int lo_ioctl(struct block_device *bdev, fmode_t mode,
 		err = loop_set_fd(lo, mode, bdev, arg);
 		break;
 	case LOOP_CHANGE_FD:
-	case LOOP_SET_BLOCK_SIZE:
-		err = loop_change_fd(lo, bdev, arg);
-		break;
 	case LOOP_CLR_FD:
 		/* loop_clr_fd would have unlocked lo_ctl_mutex on success */
 		err = loop_clr_fd(lo);
