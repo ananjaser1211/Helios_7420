@@ -27,13 +27,13 @@ CR_OUT=$CR_DIR/Helios/Out
 # Presistant A.I.K Location
 CR_AIK=$CR_DIR/Helios/A.I.K
 # Main Ramdisk Location
-CR_RAMDISK=$CR_DIR/Helios/LOS
+CR_RAMDISK=$CR_DIR/Helios/Q
 # Compiled image name and location (Image/zImage)
 CR_KERNEL=$CR_DIR/arch/arm64/boot/Image
 # Compiled dtb by dtbtool
 CR_DTB=$CR_DIR/boot.img-dtb
 # Kernel Name and Version
-CR_VERSION=V3.5
+CR_VERSION=V3.6.9
 CR_NAME=HeliosPie_AOSP
 # Thread count
 CR_JOBS=$((`nproc`-1))
