@@ -129,13 +129,8 @@ static struct ipa_config default_config = {
 
 static BLOCKING_NOTIFIER_HEAD(thermal_notifier_list);
 
-void gpu_ipa_dvfs_get_utilisation_stats(struct mali_debug_utilisation_stats *stats);
-int gpu_ipa_dvfs_max_lock(int clock);
-void gpu_ipa_dvfs_max_unlock(void);
-int kbase_platform_dvfs_freq_to_power(int freq);
-int kbase_platform_dvfs_power_to_freq(int power);
 unsigned int get_power_value(struct cpu_power_info *power_info);
-int get_ipa_dvfs_max_freq(void);
+//int get_ipa_dvfs_max_freq(void);
 int get_real_max_freq(cluster_type cluster);
 
 #define ARBITER_PERIOD_MSEC 100
@@ -259,9 +254,6 @@ static void arbiter_set_gpu_freq_limit(int freq)
 		return;
 
 	arbiter_data.gpu_freq_limit = freq;
-
-	gpu_ipa_dvfs_max_lock(freq);
-
 	/*Mali DVFS code will apply changes on next DVFS tick (100ms)*/
 }
 
@@ -376,7 +368,6 @@ static void release_power_caps(void)
 	}
 
 	arbiter_data.gpu_freq_limit = 0;
-	gpu_ipa_dvfs_max_unlock();
 }
 
 struct trace_data {
@@ -1120,7 +1111,6 @@ static void ipa_setup_max_limits(void)
 {
 	int i;
 
-	arbiter_data.gpu_freq_limit = get_ipa_dvfs_max_freq();
 	arbiter_data.cpu_freq_limits[CL_ONE] = get_real_max_freq(CL_ONE);
 	arbiter_data.cpu_freq_limits[CL_ZERO] = get_real_max_freq(CL_ZERO);
 	for (i = 0; i < NR_CPUS; i++) {
@@ -1134,8 +1124,6 @@ static void ipa_setup_max_limits(void)
 
 	arbiter_data.config.big_max_power = freq_to_power(KHZ_TO_MHZ(arbiter_data.cpu_freq_limits[CL_ONE]),
 							nr_big_coeffs, big_cpu_coeffs) * cpumask_weight(arbiter_data.cl_stats[CL_ONE].mask);
-
-	arbiter_data.config.gpu_max_power = kbase_platform_dvfs_freq_to_power(arbiter_data.gpu_freq_limit);
 
 	arbiter_data.config.soc_max_power = arbiter_data.config.gpu_max_power +
 		arbiter_data.config.big_max_power +
@@ -1202,7 +1190,6 @@ static void arbiter_calc(int currT)
 		get_cpu_power_req(CL_ZERO, little_cpu_coeffs, nr_little_coeffs)) >> WEIGHT_SHIFT;
 
 	Pgpu_req = (config->gpu_weight
-		   * kbase_platform_dvfs_freq_to_power(arbiter_data.gpu_freq)
 		   * arbiter_data.gpu_load) >> WEIGHT_SHIFT;
 
 	Pcpu_req = Plittle_req + Pbig_req;
@@ -1217,7 +1204,6 @@ static void arbiter_calc(int currT)
 	 */
 	Pbig_in = freq_to_power(KHZ_TO_MHZ(arbiter_data.cl_stats[CL_ONE].freq), nr_big_coeffs, big_cpu_coeffs) * arbiter_data.cl_stats[CL_ONE].util;
 	Plittle_in = freq_to_power(KHZ_TO_MHZ(arbiter_data.cl_stats[CL_ZERO].freq), nr_little_coeffs, little_cpu_coeffs) * arbiter_data.cl_stats[CL_ZERO].util;
-	Pgpu_in = kbase_platform_dvfs_freq_to_power(arbiter_data.mali_stats.s.freq_for_norm) * arbiter_data.gpu_load;
 
 	Pcpu_in = Plittle_in + Pbig_in;
 	Ptot_in = Pcpu_in + Pgpu_in;
@@ -1347,9 +1333,6 @@ static void arbiter_calc(int currT)
 	 */
 	cpu_freq_limits[CL_ONE] = get_cpu_freq_limit(CL_ONE, Pbig_out, big_util);
 	cpu_freq_limits[CL_ZERO] = get_cpu_freq_limit(CL_ZERO, Plittle_out, little_util);
-
-	gpu_freq_limit = kbase_platform_dvfs_power_to_freq(Pgpu_out);
-
 #ifdef CONFIG_CPU_THERMAL_IPA_CONTROL
 	if (config->enabled) {
 		arbiter_set_cpu_freq_limit(cpu_freq_limits[CL_ONE], CL_ONE);
@@ -1435,7 +1418,6 @@ static void arbiter_calc(int currT)
 
 static void arbiter_poll(struct work_struct *work)
 {
-	gpu_ipa_dvfs_get_utilisation_stats(&arbiter_data.mali_stats);
 
 	arbiter_data.gpu_load = arbiter_data.mali_stats.s.utilisation;
 
