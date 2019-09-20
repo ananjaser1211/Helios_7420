@@ -180,41 +180,6 @@ out_eacces:
 	return err;
 }
 
-<<<<<<< HEAD
-#if 0
-static int sdcardfs_symlink(struct inode *dir, struct dentry *dentry,
-			  const char *symname)
-{
-	int err;
-	struct dentry *lower_dentry;
-	struct dentry *lower_parent_dentry = NULL;
-	struct path lower_path;
-
-	OVERRIDE_CRED(SDCARDFS_SB(dir->i_sb));
-
-	sdcardfs_get_lower_path(dentry, &lower_path);
-	lower_dentry = lower_path.dentry;
-	lower_parent_dentry = lock_parent(lower_dentry);
-
-	err = vfs_symlink(lower_parent_dentry->d_inode, lower_dentry, symname);
-	if (err)
-		goto out;
-	err = sdcardfs_interpose(dentry, dir->i_sb, &lower_path);
-	if (err)
-		goto out;
-	fsstack_copy_attr_times(dir, sdcardfs_lower_inode(dir));
-	fsstack_copy_inode_size(dir, lower_parent_dentry->d_inode);
-
-out:
-	unlock_dir(lower_parent_dentry);
-	sdcardfs_put_lower_path(dentry, &lower_path);
-	REVERT_CRED();
-	return err;
-}
-#endif
-
-=======
->>>>>>> 7b6ac45... ANDROID: sdcardfs: Don't use OVERRIDE_CRED macro
 static int touch(char *abs_path, mode_t mode)
 {
 	struct file *filp = filp_open(abs_path, O_RDWR|O_CREAT|O_EXCL|O_NOFOLLOW, mode);
@@ -416,42 +381,6 @@ out_eacces:
 	return err;
 }
 
-<<<<<<< HEAD
-#if 0
-static int sdcardfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode,
-			dev_t dev)
-{
-	int err;
-	struct dentry *lower_dentry;
-	struct dentry *lower_parent_dentry = NULL;
-	struct path lower_path;
-
-	OVERRIDE_CRED(SDCARDFS_SB(dir->i_sb));
-
-	sdcardfs_get_lower_path(dentry, &lower_path);
-	lower_dentry = lower_path.dentry;
-	lower_parent_dentry = lock_parent(lower_dentry);
-
-	err = vfs_mknod(lower_parent_dentry->d_inode, lower_dentry, mode, dev);
-	if (err)
-		goto out;
-
-	err = sdcardfs_interpose(dentry, dir->i_sb, &lower_path);
-	if (err)
-		goto out;
-	fsstack_copy_attr_times(dir, sdcardfs_lower_inode(dir));
-	fsstack_copy_inode_size(dir, lower_parent_dentry->d_inode);
-
-out:
-	unlock_dir(lower_parent_dentry);
-	sdcardfs_put_lower_path(dentry, &lower_path);
-	REVERT_CRED();
-	return err;
-}
-#endif
-
-=======
->>>>>>> 7b6ac45... ANDROID: sdcardfs: Don't use OVERRIDE_CRED macro
 /*
  * The locking rules in sdcardfs_rename are complex.  We could use a simpler
  * superblock-level name-space lock for renames and copy-ups.
@@ -842,16 +771,6 @@ out:
 const struct inode_operations sdcardfs_symlink_iops = {
 	.permission2	= sdcardfs_permission,
 	.setattr2	= sdcardfs_setattr,
-<<<<<<< HEAD
-	/* XXX Following operations are implemented,
-	 *     but FUSE(sdcard) or FAT does not support them
-	 *     These methods are *NOT* perfectly tested.
-	.readlink	= sdcardfs_readlink,
-	.follow_link	= sdcardfs_follow_link,
-	.put_link	= kfree_put_link,
-	 */
-=======
->>>>>>> 7b6ac45... ANDROID: sdcardfs: Don't use OVERRIDE_CRED macro
 };
 
 const struct inode_operations sdcardfs_dir_iops = {
