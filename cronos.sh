@@ -34,7 +34,7 @@ CR_KERNEL=$CR_DIR/arch/arm64/boot/Image
 CR_DTB=$CR_DIR/boot.img-dtb
 # Kernel Name and Version
 CR_VERSION=V3.6.9
-CR_NAME=HeliosPie_AOSP
+CR_NAME=SandNigga
 # Thread count
 CR_JOBS=$((`nproc`-1))
 # Target android version and platform (7/n/8/o/9/p)
@@ -53,7 +53,7 @@ export $CR_ARCH
 ##########################################
 # Device specific Variables [SM-N920CIGSLK]
 CR_DTSFILES_N920C="exynos7420-noblelte_eur_open_00.dtb exynos7420-noblelte_eur_open_01.dtb exynos7420-noblelte_eur_open_02.dtb exynos7420-noblelte_eur_open_03.dtb exynos7420-noblelte_eur_open_04.dtb exynos7420-noblelte_eur_open_05.dtb exynos7420-noblelte_eur_open_06.dtb exynos7420-noblelte_eur_open_08.dtb exynos7420-noblelte_eur_open_09.dtb"
-CR_CONFG_N920C=noblelte_defconfig
+CR_CONFG_N920C=lineageos_noblelte_defconfig
 CR_VARIANT_N920C=N920X
 # Device specific Variables [SM-N920P_T_W8]
 CR_DTSFILES_N920P_T_W8="exynos7420-noblelte_usa_00.dtb exynos7420-noblelte_usa_01.dtb exynos7420-noblelte_usa_02.dtb exynos7420-noblelte_usa_03.dtb exynos7420-noblelte_usa_04.dtb exynos7420-noblelte_usa_06.dtb exynos7420-noblelte_usa_07.dtb exynos7420-noblelte_usa_08.dtb exynos7420-noblelte_usa_09.dtb"
